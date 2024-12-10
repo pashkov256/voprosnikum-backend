@@ -16,6 +16,10 @@ const userSchema = new Schema({
         type: String,
         required: true,
     },
+    plainPassword: {
+        type: String, // Новое поле для хранения исходного пароля
+        required: false,
+    },
     group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', default: null }, // Group, only for students
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }

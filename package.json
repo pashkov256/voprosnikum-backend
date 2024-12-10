@@ -20,6 +20,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.0.3",
     "nodemon": "^3.0.2",
+    "transliteration": "^2.3.5",
     "uuid": "^9.0.1"
   }
 }
