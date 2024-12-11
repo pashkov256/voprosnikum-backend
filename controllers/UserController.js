@@ -3,6 +3,8 @@ import jwt from "jsonwebtoken";
 import UserModel from "../models/User.js";
 import dotenv from "dotenv";
 import { transliterate } from 'transliteration';
+import Group from "../models/Group.js";
+import Test from "../models/Test.js";
 dotenv.config();
 export const register = async (req, res) => {
     try {
@@ -45,7 +47,7 @@ export const createUserByAdmin = async (req, res) => {
 
         // Проверяем, является ли текущий пользователь администратором
         const adminUser = await UserModel.findById(adminId);
-        if (!adminUser || adminUser.role !== 'admin') {
+        if (!adminUser || adminUser.role === 'student' ) {
             return res.status(403).json({ message: 'Доступ запрещён. Только администраторы могут выполнять эту операцию.' });
         }
 
@@ -93,25 +95,82 @@ export const createUserByAdmin = async (req, res) => {
         res.status(500).json({ message: 'Ошибка при создании пользователя.' });
     }
 };
-//
-// export const getAllTeachers = async (req, res) => {
-//     try {
-//         const adminId = req.userId;
-//         // Проверяем, является ли текущий пользователь администратором
-//         console.log(adminId)
-//         const adminUser = await UserModel.findById(adminId);
-//         if (!adminUser || adminUser.role !== 'admin') {
-//             return res.status(403).json({ message: 'Доступ запрещён. Только администраторы могут выполнять эту операцию.' });
-//         }
-//         // Получение всех пользователей с ролью "teacher"
-//         const teachers = await UserModel.find({ role: 'teacher' }).select('-passwordHash');
-//
-//         res.status(200).json(teachers);
-//     } catch (error) {
-//         console.error(error);
-//         res.status(500).json({ message: 'Ошибка при получении списка учителей.' });
-//     }
-// };
+
+
+export const getUsersByGroup = async (req, res) => {
+    try {
+        const requestingUserId = req.userId;
+        const requestingUser = await UserModel.findById(requestingUserId);
+        if (!requestingUser || !["admin", "teacher"].includes(requestingUser.role)) {
+            return res.status(403).json({
+                message: "Доступ запрещён. Только администраторы или учителя могут выполнять эту операцию.",
+            });
+        }
+
+        const { groupId } = req.params;
+
+        if (!groupId) {
+            return res.status(400).json({ message: "Не указан ID группы." });
+        }
+
+        // Получаем всех пользователей, относящихся к данной группе
+        const users = await UserModel.find({ group: groupId }).select("-passwordHash");
+
+        // if (users.length === 0) {
+        //     return res.status(404).json({ message: "В этой группе нет пользователей." });
+        // }
+
+        res.status(200).json(users);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Ошибка при получении пользователей группы." });
+    }
+};
+
+export const getTeacherAndTestsByStudentGroup = async (req, res) => {
+    try {
+        const studentId = req.userId; // ID текущего ученика, отправившего запрос
+
+        // Проверяем, существует ли пользователь и является ли он учеником
+        const student = await UserModel.findById(studentId);
+        if (!student || student.role !== "student") {
+            return res.status(403).json({
+                message: "Доступ запрещён. Только ученики могут выполнять эту операцию.",
+            });
+        }
+
+        if (!student.group) {
+            return res.status(400).json({
+                message: "У ученика не указана группа. Обратитесь к администратору.",
+            });
+        }
+
+        const group = await Group.findById(student.group).populate("teachers", "_id fullName");
+        if (!group) {
+            return res.status(404).json({ message: "Группа не найдена." });
+        }
+
+        const teacherData = await Promise.all(
+            group.teachers.map(async (teacher) => {
+                const tests = await Test.find({ author: teacher._id });
+                return {
+                    _id: teacher._id,
+                    fullName: teacher.fullName,
+                    tests: tests,
+                };
+            })
+        );
+
+        res.status(200).json({
+            groupName: group.name,
+            teachers: teacherData,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Ошибка при получении данных учителей и тестов." });
+    }
+};
+
 
 export const getAllTeachers = async (req, res) => {
     try {
@@ -139,11 +198,30 @@ export const getAllTeachers = async (req, res) => {
     }
 };
 
+export const getMinimalTeachersList = async (req, res) => {
+    try {
+        const requestingUserId = req.userId;
+
+        const requestingUser = await UserModel.findById(requestingUserId);
+        if (!requestingUser || !["admin", "teacher"].includes(requestingUser.role)) {
+            return res.status(403).json({
+                message: "Доступ запрещён. Только администраторы или учителя могут выполнять эту операцию.",
+            });
+        }
+
+        const teachers = await UserModel.find({ role: "teacher" }).select("_id fullName");
+
+        res.status(200).json(teachers);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Ошибка при получении списка преподавателей." });
+    }
+};
 
 export const login = async (req, res) => {
     try {
         const user = await UserModel.findOne({ login: req.body.login });
-        console.log(user)
+        // console.log(user)
         if (!user) {
             return res.status(404).json({
                 message: "Пользователь не найден",
@@ -154,6 +232,7 @@ export const login = async (req, res) => {
             req.body.password,
             user._doc.passwordHash
         );
+        console.log(`isValidPass ${isValidPass}`)
         if (!isValidPass) {
             return res.status(400).json({
                 message: "Неверный логин или пароль",

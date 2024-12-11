@@ -20,6 +20,8 @@ export const getAllTests = async (req, res) => {
     }
 };
 
+
+
 export const getTestsByTeacher = async (req, res) => {
     try {
         const { teacherId } = req.params; // Получаем ID учителя из параметров маршрута
