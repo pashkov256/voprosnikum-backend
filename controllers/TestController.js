@@ -11,6 +11,26 @@ export const createTest = async (req, res) => {
     }
 };
 
+export const getTestById = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!id) {
+            return res.status(400).json({ message: "Не указан ID теста." });
+        }
+
+        const test = await Test.findById(id).populate("author", "_id fullName");
+        if (!test) {
+            return res.status(404).json({ message: "Тест не найден." });
+        }
+        res.status(200).json(test);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Ошибка при получении теста." });
+    }
+};
+
+
 export const getAllTests = async (req, res) => {
     try {
         const tests = await Test.find().populate('group teacher');

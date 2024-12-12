@@ -1,4 +1,5 @@
 import Question from '../models/Question.js';
+import Test from "../models/Test.js";
 
 export const createQuestion = async (req, res) => {
     try {
@@ -56,6 +57,37 @@ export const updateQuestion = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+export const createQuestionAndAddToTest = async (req, res) => {
+    try {
+        const { testId } = req.params; // ID теста из параметров маршрута
+
+        // Проверяем, указан ли ID теста
+        if (!testId) {
+            return res.status(400).json({ message: "Не указан ID теста." });
+        }
+
+        // Проверяем, существует ли тест
+        const test = await Test.findById(testId);
+        if (!test) {
+            return res.status(404).json({ message: "Тест не найден." });
+        }
+
+        // Создаем новый вопрос из данных, переданных в теле запроса
+        const questionData = req.body;
+        const newQuestion = new Question(questionData);
+        const savedQuestion = await newQuestion.save();
+
+        test.questions.push(savedQuestion._id);
+        await test.save();
+
+        res.status(201).json({ message: "Вопрос успешно создан и добавлен в тест.", question: savedQuestion });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Ошибка при создании вопроса и добавлении в тест." });
+    }
+};
+
 
 
 export const deleteQuestion = async (req, res) => {

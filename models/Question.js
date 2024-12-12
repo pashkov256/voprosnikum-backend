@@ -1,15 +1,12 @@
 import mongoose from 'mongoose';
 
 const questionSchema = new mongoose.Schema({
-    test: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Test',
-        required: true,
-    },
-    content: {
-        type: String,
-        required: true,
-    },
+    // test: {
+    //     type: mongoose.Schema.Types.ObjectId,
+    //     ref: 'Test',
+    //     required: true,
+    // },
+    title: { type: String, required: true },
     type: {
         type: String,
         enum: ['short-answer', 'multiple-choice'],
@@ -30,7 +27,6 @@ const questionSchema = new mongoose.Schema({
     },
     timeLimit: {
         type: Number, // Время на вопрос в секундах
-        required: true,
     },
 });
 

@@ -7,7 +7,8 @@ const testSchema = new mongoose.Schema({
     group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', required: true },
     questions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Question' }],
     deadline: { type: Date, required: true }, // Крайний срок для прохождения
-    createdAt: { type: Date, default: Date.now }
+    createdAt: { type: Date, default: Date.now },
+
 });
 
 export default mongoose.model('Test', testSchema);
