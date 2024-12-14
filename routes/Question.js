@@ -12,7 +12,7 @@ const router = express.Router();
 router.post('/questions', createQuestion);
 router.get('/questions/:testId', getQuestionsByTest);
 router.put('/questions/:id', updateQuestion);
-router.post('/question/test/:id', createQuestionAndAddToTest);
+router.post('/question/test/:testId', createQuestionAndAddToTest);
 router.delete('/questions/:id', deleteQuestion);
 
 export default router;

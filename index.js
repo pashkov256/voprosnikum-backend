@@ -22,10 +22,10 @@ mongoose
 app.use(cors());
 app.use(express.json());
 app.use(UserRoute);
-app.use( TestRoute);
-app.use( TestResultRoute);
-app.use( QuestionRoute);
-app.use( GroupRoute);
+app.use(TestRoute);
+app.use(TestResultRoute);
+app.use(QuestionRoute);
+app.use(GroupRoute);
 app.listen(3333, () => {
     console.log("server working on 3333 PORT");
 });

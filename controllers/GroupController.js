@@ -14,7 +14,7 @@ export const createGroup = async (req, res) => {
 
 export const getAllGroups = async (req, res) => {
     try {
-        const groups = await Group.find();
+        const groups = await Group.find({}, 'name _id');
         res.status(200).json(groups);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -88,6 +88,7 @@ export const addTeacherToGroup = async (req, res) => {
         res.status(500).json({ message: "Ошибка при добавлении преподавателя в группу." });
     }
 };
+
 
 
 export const removeTeacherFromGroup = async (req, res) => {
