@@ -7,6 +7,7 @@ const questionSchema = new mongoose.Schema({
     //     required: true,
     // },
     title: { type: String, required: true },
+    title1: { type: String },
     type: {
         type: String,
         enum: ['short-answer', 'multiple-choice'],
