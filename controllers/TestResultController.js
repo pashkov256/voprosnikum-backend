@@ -1,8 +1,8 @@
-import TestResult from '../models/TestResult.js';
-import Test from '../models/Test.js';
-import User from '../models/User.js'
-import TestAnswer from "../models/TestAnswer.js";
 import Question from "../models/Question.js";
+import Test from '../models/Test.js';
+import TestAnswer from "../models/TestAnswer.js";
+import TestResult from '../models/TestResult.js';
+import User from '../models/User.js';
 export const createTestResult = async (req, res) => {
     try {
         const { test, student, dateStart } = req.body;
@@ -55,10 +55,11 @@ export const getTestResultByStudentAndTest = async (req, res) => {
             student: studentId,
             test: testId,
         }) .populate({
-            path: "testAnswers",
-            model: TestAnswer,
-        });
-
+            path: "student",
+            model: "Users",
+            select: '-passwordHash'
+        })
+        //'-role -login -passwordHash -plainPassword -group -createdAt -updatedAt -__v'
         // Если результат не найден
         if (!testResult) {
             return res.status(404).json({ message: "Результат теста не найден." });
@@ -148,7 +149,10 @@ export const getAllTestResults = async (req, res) => {
     try {
         const {id} = req.params
         console.log(req.params)
-        const results = await TestResult.find({ test: id }).populate('testAnswers');
+        const results = await TestResult.find({ test: id }).populate('testAnswers').populate({
+            path: "student",
+            model: User,
+        });
         console.log(results)
         res.status(200).json(results);
     } catch (error) {
@@ -159,6 +163,8 @@ export const getAllTestResults = async (req, res) => {
 export const updateTestResult = async (req, res) => {
     try {
         const { id } = req.params;
+        console.log(`id ${id}`);
+        
         const updates = req.body;
         const result = await TestResult.findByIdAndUpdate(id, updates, { new: true });
         if (!result) return res.status(404).json({ error: 'Test result not found' });

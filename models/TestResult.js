@@ -5,9 +5,9 @@ const testResultSchema = new mongoose.Schema({
     student: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Ученик, прошедший тест
     testAnswers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'TestAnswer' }], // Ученик, прошедший тест
     score: { type: Number}, // Итоговый балл ученика
-    completedAt: { type: Date, default: Date.now }, // Дата завершения теста (ЗАВЕРШЕН ЛИ ТЕСТ СМОТРЕТЬ ПО ЭТОМУ КЛЮЧУ)
+    completedAt: { type: Date}, // Дата завершения теста (ЗАВЕРШЕН ЛИ ТЕСТ СМОТРЕТЬ ПО ЭТОМУ КЛЮЧУ)
     dateStart: { type: Date},//время когда начал
-    completionTime: { type: Date },//за какое время завершил
+    completionTime: { type: String },//за сколько минут закончил
 });
 
 export default mongoose.model('TestResult', testResultSchema);
