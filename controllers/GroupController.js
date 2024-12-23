@@ -46,14 +46,6 @@ export const deleteGroup = async (req, res) => {
 
 export const addTeacherToGroup = async (req, res) => {
     try {
-        // const requestingUserId = req.userId;
-        // const requestingUser = await UserModel.findById(requestingUserId);
-        // console.log(req.body)
-        // if (!requestingUser || requestingUser.role !== "student") {
-        //     return res.status(403).json({
-        //         message: "Доступ запрещён. Только администратор может добавлять преподавателей в группы.",
-        //     });
-        // }
         const { groupId, teacherId } = req.body;
 
         if (!groupId || !teacherId) {
@@ -61,26 +53,37 @@ export const addTeacherToGroup = async (req, res) => {
                 message: "Необходимо указать ID группы и ID преподавателя.",
             });
         }
-        const teacher = await UserModel.findById({_id:teacherId});
+
+        const teacher = await UserModel.findById(teacherId);
         if (!teacher || teacher.role !== "teacher") {
             return res.status(400).json({
                 message: "Пользователь с указанным ID либо не существует, либо не является преподавателем.",
             });
         }
+
         const group = await Group.findById(groupId);
         if (!group) {
             return res.status(404).json({ message: "Группа не найдена." });
         }
+
         if (group.teachers.includes(teacherId)) {
             return res.status(400).json({
                 message: "Этот преподаватель уже добавлен в группу.",
             });
         }
+
+        // Добавляем преподавателя в список группы
         group.teachers.push(teacherId);
         await group.save();
 
+        // Добавляем группу в список groupsTeacher у преподавателя, если она ещё не добавлена
+        if (!teacher.groupsTeacher.includes(groupId)) {
+            teacher.groupsTeacher.push(groupId);
+            await teacher.save();
+        }
+
         res.status(200).json({
-            message: "Преподаватель успешно добавлен в группу.",
+            message: "Преподаватель успешно добавлен в группу и группа добавлена в список преподавателя.",
             group,
         });
     } catch (error) {
@@ -88,8 +91,6 @@ export const addTeacherToGroup = async (req, res) => {
         res.status(500).json({ message: "Ошибка при добавлении преподавателя в группу." });
     }
 };
-
-
 
 export const removeTeacherFromGroup = async (req, res) => {
     try {
@@ -110,6 +111,7 @@ export const removeTeacherFromGroup = async (req, res) => {
             });
         }
 
+        // Проверяем, существует ли учитель и является ли он учителем
         const teacher = await UserModel.findById(teacherId);
         if (!teacher || teacher.role !== "teacher") {
             return res.status(404).json({
@@ -117,15 +119,22 @@ export const removeTeacherFromGroup = async (req, res) => {
             });
         }
 
+        // Удаляем учителя из массива teachers группы
         const updatedTeachers = group.teachers.filter(
-            (teacher) => teacher.toString() !== teacherId
+            (id) => id.toString() !== teacherId
         );
-
         group.teachers = updatedTeachers;
         await group.save();
 
+        // Удаляем группу из массива groupsTeacher учителя
+        const updatedGroups = teacher.groupsTeacher.filter(
+            (id) => id.toString() !== groupId
+        );
+        teacher.groupsTeacher = updatedGroups;
+        await teacher.save();
+
         res.status(200).json({
-            message: "Учитель успешно удалён из группы.",
+            message: "Учитель успешно удалён из группы, а группа удалена из списка учителя.",
             group,
         });
     } catch (error) {
@@ -135,6 +144,7 @@ export const removeTeacherFromGroup = async (req, res) => {
         });
     }
 };
+
 
 export const getGroupById = async (req, res) => {
     try {

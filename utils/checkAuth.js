@@ -2,29 +2,8 @@ import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 dotenv.config();
 export default (req, res, next) => {
-  // const token = (req.headers.authorization || "").replace(/Bearer\s?/, "");
-  // console.log(token);
-  // if (token) {
-  //     try {
-  //         console.log(process.env.SECRET)
-  //         const decoded = jwt.verify(token, process.env.SECRET);
-  //         req.userId = decoded._id;
-  //         next();
-  //     } catch (error) {
-  //         console.log(error);
-  //         return res.status(403).json({
-  //             message: "Нет доступа1",
-  //         });
-  //     }
-  // } else {
-  //     return res.status(403).json({
-  //         message: "Нет доступа2",
-  //     });
-  // }
   const token = (req.headers.authorization || "").replace(/Bearer\s?/, "");
-  console.log(!token && "Token is " + token);
-  console.log(req.headers.authorization);
-  console.log(1111);
+
   if (!token) {
     return res.status(401).json({ message: "Нет доступа." });
   }

@@ -21,6 +21,7 @@ const userSchema = new Schema({
         required: false,
     },
     group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', default: null }, // Group, only for students
+    groupsTeacher: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Group', default: [] }],//групы учителя
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
 });

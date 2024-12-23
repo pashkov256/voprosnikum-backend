@@ -1,7 +1,7 @@
-import Test from '../models/Test.js';
 import Question from '../models/Question.js';
-import User from "../models/User.js";
+import Test from '../models/Test.js';
 import TestResult from "../models/TestResult.js";
+import User from "../models/User.js";
 export const createTest = async (req, res) => {
     try {
         const { name, description, teacher, group, deadline } = req.body;
@@ -101,20 +101,33 @@ export const getAllTests = async (req, res) => {
 
 export const getTestsByTeacher = async (req, res) => {
     try {
-        const { teacherId } = req.params; // Получаем ID учителя из параметров маршрута
+        const { teacherId } = req.params;
+        const { sortGroupBy } = req.body; // Получаем сортировку по группе из тела запроса
 
-        // Поиск тестов по ID учителя
-        const tests = await Test.find({ teacher: teacherId });
-
-        if (!tests || tests.length === 0) {
-            return res.status(404).json({ message: 'Тесты для данного учителя не найдены.' });
+        if (!sortGroupBy) {
+            return res.status(400).json({ message: 'Поле sortGroupBy обязательно.' });
         }
 
-        res.status(200).json(tests); // Возвращаем найденные тесты
+        let query = { teacher: teacherId }; // Базовый запрос для поиска тестов
+
+        // Добавляем условие поиска по группе, если sortGroupBy не равен "all"
+        if (sortGroupBy !== "all") {
+            query.group = sortGroupBy;
+        }
+
+        const tests = await Test.find(query);
+
+        if (!tests || tests.length === 0) {
+            return res.status(200).json([]);
+        }
+
+        res.status(200).json(tests);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ error: error.message });
     }
 };
+
 
 
 export const updateTest = async (req, res) =>   {
