@@ -1,17 +1,18 @@
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
-import UserModel from "../models/User.js";
 import dotenv from "dotenv";
+import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import { transliterate } from 'transliteration';
 import Group from "../models/Group.js";
 import Test from "../models/Test.js";
+import TestResult from "../models/TestResult.js";
+import UserModel from "../models/User.js";
 dotenv.config();
 export const register = async (req, res) => {
     try {
         const password = req.body.password;
         const salt = await bcrypt.genSalt(10);
         const hash = await bcrypt.hash(password, salt);
-        console.log(req.body);
         const doc = new UserModel({
             fullName: req.body.fullName,
             login: req.body.login,
@@ -28,7 +29,7 @@ export const register = async (req, res) => {
             },
             process.env.SECRET,
             {
-                expiresIn: "30d",
+                expiresIn: "120d",
             }
         );
 
@@ -56,9 +57,11 @@ export const createUserByAdmin = async (req, res) => {
         if (!fullName || !role) {
             return res.status(400).json({ message: 'Поле fullName и role обязательны.' });
         }
-
+        let fio = fullName.split(' ')
+        let fln = [fio[0],fio[1]].join('')
+        
         // Транслитерация имени и фамилии
-        const transliteratedName = transliterate(fullName.replace(/\s+/g, '').toLowerCase());
+        const transliteratedName = transliterate(fln.toLowerCase());
         const randomDigitsLogin = Math.floor(10000 + Math.random() * 90000);
         const login = `${transliteratedName}${randomDigitsLogin}`;
         const randomDigitsPasswordStart = Math.floor(10 + Math.random() * 90);
@@ -127,11 +130,57 @@ export const getUsersByGroup = async (req, res) => {
     }
 };
 
+// export const getTeacherAndTestsByStudentGroup = async (req, res) => {
+//     try {
+//         const studentId = req.userId; // ID текущего ученика, отправившего запрос
+
+//         // Проверяем, существует ли пользователь и является ли он учеником
+//         const student = await UserModel.findById(studentId);
+//         if (!student || student.role !== "student") {
+//             return res.status(403).json({
+//                 message: "Доступ запрещён. Только ученики могут выполнять эту операцию.",
+//             });
+//         }
+
+//         if (!student.group) {
+//             return res.status(400).json({
+//                 message: "У ученика не указана группа. Обратитесь к администратору.",
+//             });
+//         }
+
+//         const group = await Group.findById(student.group).populate("teachers", "_id fullName");
+//         if (!group) {
+//             return res.status(404).json({ message: "Группа не найдена." });
+//         }
+
+//         const teacherData = await Promise.all(
+//             group.teachers.map(async (teacher) => {
+//                 const tests = await Test.find({ teacher: teacher._id });
+//                 console.log(`tests ${tests}`);
+                
+//                 return {
+//                     _id: teacher._id,
+//                     fullName: teacher.fullName,
+//                     tests: tests,
+//                 };
+//             })
+//         );
+        
+
+//         res.status(200).json({
+//             groupName: group.name,
+//             teachers: teacherData,
+//         });
+//     } catch (error) {
+//         console.error(error);
+//         res.status(500).json({ message: "Ошибка при получении данных учителей и тестов." });
+//     }
+// };
+
 export const getTeacherAndTestsByStudentGroup = async (req, res) => {
     try {
-        const studentId = req.userId; // ID текущего ученика, отправившего запрос
+        const studentId = req.userId;
 
-        // Проверяем, существует ли пользователь и является ли он учеником
         const student = await UserModel.findById(studentId);
         if (!student || student.role !== "student") {
             return res.status(403).json({
@@ -150,16 +199,84 @@ export const getTeacherAndTestsByStudentGroup = async (req, res) => {
             return res.status(404).json({ message: "Группа не найдена." });
         }
 
-        const teacherData = await Promise.all(
-            group.teachers.map(async (teacher) => {
-                const tests = await Test.find({ author: teacher._id });
-                return {
-                    _id: teacher._id,
-                    fullName: teacher.fullName,
-                    tests: tests,
-                };
-            })
-        );
+        const teacherIds = group.teachers.map((teacher) => teacher._id);
+
+        // Загрузка всех тестов и testResult за один запрос
+        const testsWithResults = await Test.aggregate([
+            { $match: { teacher: { $in: teacherIds } } },
+            {
+                $lookup: {
+                    from: "testresults", // Коллекция testResult
+                    let: { testId: "$_id" },
+                    pipeline: [
+                        { 
+                            $match: { 
+                                $expr: { 
+                                    $and: [
+                                        { $eq: ["$test", "$$testId"] }, 
+                                        { $eq: ["$student", new mongoose.Types.ObjectId(studentId)] }
+                                    ] 
+                                } 
+                            } 
+                        },
+                        { $project: { completionTime: 1 } },
+                    ],
+                    as: "testResult",
+                },
+            },
+            {
+                $addFields: {
+                    testIsComplete: {
+                        $cond: {
+                            if: { $gt: [{ $size: "$testResult" }, 0] },
+                            then: { $ne: ["$testResult.0.completionTime", undefined] },
+                            else: false,
+                        },
+                    },
+                },
+            },
+            {
+                $lookup: {
+                    from: "groups", // Коллекция groups
+                    localField: "group", // Поле в test, которое ссылается на group
+                    foreignField: "_id", // Соответствующее поле в коллекции group
+                    as: "groupDetails", // Результат будет помещён в groupDetails
+                },
+            },
+            {
+                $unwind: { 
+                    path: "$groupDetails", // Раскручиваем массив groupDetails, если он не пустой
+                    preserveNullAndEmptyArrays: true, // Оставляем пустое значение, если группа не найдена
+                },
+            },
+            {
+                $project: {
+                    createdAt: 1,
+                    deadline: 1,
+                    name: 1,
+                    timeLimit: 1,
+                    testIsComplete: 1,
+                    teacher: 1,
+                    groupDetails: 1, // добавляем groupDetails
+                },
+            },
+        ]);
+        
+        const teacherData = group.teachers.map((teacher) => {
+            const teacherTests = testsWithResults.filter((test) => {
+                // Добавляем проверки на наличие groupDetails
+                return (
+                    String(test.teacher) === String(teacher._id) && 
+                    test.groupDetails && 
+                    test.groupDetails.name === group.name
+                );
+            });
+            return {
+                _id: teacher._id,
+                fullName: teacher.fullName,
+                tests: teacherTests,
+            };
+        });
 
         res.status(200).json({
             groupName: group.name,
@@ -221,7 +338,6 @@ export const getMinimalTeachersList = async (req, res) => {
 export const login = async (req, res) => {
     try {
         const user = await UserModel.findOne({ login: req.body.login });
-        // console.log(user)
         if (!user) {
             return res.status(404).json({
                 message: "Пользователь не найден",
@@ -232,7 +348,6 @@ export const login = async (req, res) => {
             req.body.password,
             user._doc.passwordHash
         );
-        console.log(`isValidPass ${isValidPass}`)
         if (!isValidPass) {
             return res.status(400).json({
                 message: "Неверный логин или пароль",
@@ -245,7 +360,7 @@ export const login = async (req, res) => {
             },
             process.env.SECRET,
             {
-                expiresIn: "30d",
+                expiresIn: "120d",
             }
         );
         const { passwordHash, ...userData } = user._doc;
@@ -257,7 +372,10 @@ export const login = async (req, res) => {
 
 export const getMe = async (req, res) => {
     try {
-        const user = await UserModel.findById(req.userId, "-passwordHash");
+        const user = await UserModel.findById(req.userId, "-passwordHash").populate({
+            path: 'groupsTeacher',
+            select: '-createdAt -updatedAt -__v -teachers',
+        });
 
         if (!user) {
             return res.status(404).json({

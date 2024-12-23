@@ -54,7 +54,7 @@ export const getTestResultByStudentAndTest = async (req, res) => {
         const testResult = await TestResult.findOne({
             student: studentId,
             test: testId,
-        }) .populate({
+        }).populate({
             path: "student",
             model: "Users",
             select: '-passwordHash'
@@ -73,14 +73,80 @@ export const getTestResultByStudentAndTest = async (req, res) => {
     }
 };
 
+// export const createTestAnswer = async (req, res) => {
+//     try {
+//         const { testResult, question, answer,isCorrect } = req.body;
+//         console.log(req.body)
+//         // Проверка обязательных данных
+//         // if (!testResult || !question || !answer || !isCorrect) {
+//         //     return res.status(400).json({ message: "Все поля (testResult, question, answer) обязательны для заполнения" });
+//         // }
+
+//         // Проверка существования результата теста
+//         const testResultExists = await TestResult.findById(testResult).populate({
+//             path: "testAnswers",
+//             model: TestAnswer,
+//         });
+//         if (!testResultExists) {
+//             return res.status(404).json({ message: "Результат теста не найден" });
+//         }
+
+//         // Проверка существования вопроса
+//         const questionExists = await Question.findById(question);
+//         if (!questionExists) {
+//             return res.status(404).json({ message: "Вопрос не найден" });
+//         }
+
+//         let test = await Test.findById(testResultExists.test)
+//         console.log(`testResultExists.test ${testResultExists.test}`)
+//         console.log(test)
+
+//         // Создание нового ответа
+//         const newTestAnswer = new TestAnswer({
+//             testResult,
+//             question,
+//             // answer,
+//             isCorrect
+//         });
+//         let countTrueAnswers = testResultExists.testAnswers.filter((answ)=>answ.isCorrect).length
+//         if(isCorrect){
+//             countTrueAnswers += 1
+//         }
+//         console.log(`countTrueAnswers ${countTrueAnswers}`)
+//         let resultScore = Math.floor((countTrueAnswers / test.questions.length) * 10)
+
+//         console.log(resultScore)
+//         let ocenka = 0
+//         if(resultScore == 10){
+//             ocenka = 5
+//         } else if (resultScore >= 8 || resultScore == 9 ){
+//             ocenka = 4
+//         } else if(resultScore >= 6 || resultScore == 7 ){
+//             ocenka = 3
+//         } else if (resultScore <= 5 ){
+//             ocenka = 2
+//         }
+
+
+//         console.log(`resultScore ${resultScore}`)
+
+//         // Сохранение в базе данных
+//         const savedTestAnswer = await newTestAnswer.save();
+//         testResultExists.score =ocenka
+//         testResultExists.testAnswers.push(savedTestAnswer._id);
+//         await testResultExists.save();
+//         return res.status(201).json({
+//             message: "Ответ успешно создан",
+//             testAnswer: newTestAnswer
+//         });
+//     } catch (error) {
+//         console.error("Ошибка при создании ответа на тест:", error);
+//         return res.status(500).json({ message: "Ошибка на сервере" });
+//     }
+// };
 export const createTestAnswer = async (req, res) => {
     try {
-        const { testResult, question, answer,isCorrect } = req.body;
-        console.log(req.body)
-        // Проверка обязательных данных
-        // if (!testResult || !question || !answer || !isCorrect) {
-        //     return res.status(400).json({ message: "Все поля (testResult, question, answer) обязательны для заполнения" });
-        // }
+        const { testResult, question, answer, isCorrect, selectedAnswerOptions, correctAnswers, isTimeFail } = req.body;
 
         // Проверка существования результата теста
         const testResultExists = await TestResult.findById(testResult).populate({
@@ -97,53 +163,84 @@ export const createTestAnswer = async (req, res) => {
             return res.status(404).json({ message: "Вопрос не найден" });
         }
 
-        let test = await Test.findById(testResultExists.test)
-        console.log(`testResultExists.test ${testResultExists.test}`)
-        console.log(test)
+        const test = await Test.findById(testResultExists.test);
+
+        let pointsAwarded = 0;
+
+        // Логика начисления баллов
+        if (isTimeFail) {
+            // Если время истекло, ученик не ответил
+            pointsAwarded = 0;
+        } else if (selectedAnswerOptions && correctAnswers) {
+            // Если пользователь выбрал варианты ответа
+            const correctSet = new Set(correctAnswers);
+            const selectedSet = new Set(selectedAnswerOptions);
+
+            // Подсчёт правильных и неправильных ответов
+            const correctSelections = [...selectedSet].filter((option) => correctSet.has(option));
+            const incorrectSelections = [...selectedSet].filter((option) => !correctSet.has(option));
+
+            // Начисление и вычитание баллов
+            pointsAwarded += correctSelections.length * 0.5; // +0.5 за каждый правильный вариант
+            pointsAwarded -= incorrectSelections.length * 0.5; // -0.5 за каждый неправильный вариант
+
+            // Если итоговое количество баллов отрицательное, приводим к нулю
+            pointsAwarded = Math.max(pointsAwarded, 0);
+        } else if (isCorrect !== undefined) {
+            // Если это текстовый ответ
+            pointsAwarded = isCorrect ? 1 : 0;
+        }
 
         // Создание нового ответа
         const newTestAnswer = new TestAnswer({
             testResult,
             question,
-            // answer,
-            isCorrect
+            answer,
+            isCorrect,
         });
-        let countTrueAnswers = testResultExists.testAnswers.filter((answ)=>answ.isCorrect).length
-        if(isCorrect){
-            countTrueAnswers += 1
+
+        // Обновление баллов
+        testResultExists.points += pointsAwarded;
+
+        // Пересчёт максимального количества баллов
+        const totalPointsPossible = test.questions.reduce((sum, q) => {
+            if (q.options && q.correctAnswers) {
+                return sum + q.correctAnswers.length * 0.5; // Каждый правильный вариант — 0.5 балла
+            } else {
+                return sum + 1; // Текстовый вопрос даёт 1 балл
+            }
+        }, 0);
+
+        // Процентное соотношение: points пользователя относительно максимального количества баллов
+        const percentage = (testResultExists.points / totalPointsPossible) * 100;
+
+        // Система оценивания
+        if (percentage >= 80) {
+            testResultExists.score = 5;
+        } else if (percentage >= 70) {
+            testResultExists.score = 4;
+        } else if (percentage >= 50) {
+            testResultExists.score = 3;
+        } else {
+            testResultExists.score = 2;
         }
-        console.log(`countTrueAnswers ${countTrueAnswers}`)
-        let resultScore = Math.floor((countTrueAnswers / test.questions.length) * 10)
 
-        console.log(resultScore)
-        let ocenka = 0
-        if(resultScore == 10){
-            ocenka = 5
-        } else if (resultScore >= 8 || resultScore == 9 ){
-            ocenka = 4
-        } else if(resultScore >= 6 || resultScore == 7 ){
-            ocenka = 3
-        } else if (resultScore <= 5 ){
-            ocenka = 2
-        }
-
-
-        console.log(`resultScore ${resultScore}`)
-
-        // Сохранение в базе данных
+        // Сохранение нового ответа и обновлённого результата теста
         const savedTestAnswer = await newTestAnswer.save();
-        testResultExists.score =ocenka
         testResultExists.testAnswers.push(savedTestAnswer._id);
         await testResultExists.save();
+
         return res.status(201).json({
             message: "Ответ успешно создан",
-            testAnswer: newTestAnswer
+            testAnswer: newTestAnswer,
         });
     } catch (error) {
         console.error("Ошибка при создании ответа на тест:", error);
         return res.status(500).json({ message: "Ошибка на сервере" });
     }
 };
+
+
 
 export const getAllTestResults = async (req, res) => {
     try {

@@ -1,18 +1,17 @@
 import express from 'express';
 import {
-    createGroup,
-    getAllGroups,
-    updateGroup,
-    deleteGroup,
-    getGroupById,
     addTeacherToGroup,
-    removeTeacherFromGroup
+    createGroup,
+    deleteGroup,
+    getAllGroups,
+    getGroupById,
+    removeTeacherFromGroup,
+    updateGroup
 } from '../controllers/GroupController.js';
 import checkAuth from "../utils/checkAuth.js";
 
 const router = express.Router();
 
-router.post('/groups', createGroup);
 router.post('/groups', createGroup);
 router.post('/group/add-teacher', addTeacherToGroup );
 router.delete('/group/delete-teacher', removeTeacherFromGroup );
