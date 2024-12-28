@@ -10,7 +10,7 @@ const questionSchema = new mongoose.Schema({
     title1: { type: String },
     type: {
         type: String,
-        enum: ['short-answer', 'multiple-choice'],
+        enum: ['short-answer', 'multiple-choice','single-choice'],
         required: true,
         default: 'multiple-choice', // По умолчанию вопрос с выбором вариантов
     },

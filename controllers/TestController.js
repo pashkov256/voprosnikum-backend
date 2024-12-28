@@ -1,3 +1,4 @@
+import Group from '../models/Group.js';
 import Question from '../models/Question.js';
 import Test from '../models/Test.js';
 import TestResult from "../models/TestResult.js";
@@ -115,7 +116,11 @@ export const getTestsByTeacher = async (req, res) => {
             query.group = sortGroupBy;
         }
 
-        const tests = await Test.find(query);
+        const tests = await Test.find(query).populate({
+            path: "group",
+            model: Group,
+            select: "-teachers -createdAt",
+        });
 
         if (!tests || tests.length === 0) {
             return res.status(200).json([]);
@@ -171,8 +176,10 @@ export const updateTest = async (req, res) =>   {
 };
 
 export const deleteTest = async (req, res) => {
+
     try {
         const { id } = req.params;
+        console.log(`DEL ID ${id}`);
         const test = await Test.findByIdAndDelete(id);
         if (!test) return res.status(404).json({ error: 'Test not found' });
         res.status(200).json({ message: 'Test deleted successfully' });

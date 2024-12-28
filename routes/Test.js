@@ -18,7 +18,6 @@ router.post('/tests/teacher/:teacherId', getTestsByTeacher);
 router.get("/tests/:id",checkAuth, getTestById);
 router.put('/tests/:id', updateTest);
 router.delete('/tests/:id', deleteTest);
-router.delete('/tests/:id', deleteTest);
 
 export default router;
 
