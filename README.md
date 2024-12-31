@@ -1,6 +1,6 @@
-<div style="text-align: center;">
-    <img src="https://raw.githubusercontent.com/pashkov256/media/refs/heads/main/voprosnikum/logo.png" alt="Project Banner" />
-</div>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/pashkov256/media/refs/heads/main/voprosnikum/logo.png" alt="Project Banner" />
+</p>
 
 ## Описание  
 
