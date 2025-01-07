@@ -9,6 +9,9 @@ const testSchema = new mongoose.Schema({
     deadline: { type: Date }, // Крайний срок для прохождения
     timeLimit: { type: Number, default: 0 }, // Время на прохождение теста (в минутах)
     createdAt: { type: Date, default: Date.now },
+    countRandomizedQuestionsSets: { type: Number, default: 8},//количество вариантов с рандомными вопросами  
+    randomizedQuestionsSets: { type: [[Number]], default: []},//варианты с рандомными вопросами  
+    isQuestionsRandomized: { type: Boolean, default: true},//вопросы в рандомном порядке?
     isResultVisibleAfterDeadline: { type: Boolean, default: false }, // Показывать результат теста только после истечения срока сдачи
 });
 

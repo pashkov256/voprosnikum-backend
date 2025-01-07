@@ -5,7 +5,7 @@ import TestResult from '../models/TestResult.js';
 import User from '../models/User.js';
 export const createTestResult = async (req, res) => {
     try {
-        const { test, student, dateStart } = req.body;
+        const { test, student, dateStart,randomizedQuestionsSetIndex } = req.body;
 
         // Проверяем существование теста и ученика
         const testExists = await Test.findById(test);
@@ -20,6 +20,7 @@ export const createTestResult = async (req, res) => {
             testAnswers:[],
             // score:score,
             dateStart,
+            randomizedQuestionsSetIndex
         });
 
         const savedTestResult = await newTestResult.save();
