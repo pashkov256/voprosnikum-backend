@@ -9,6 +9,7 @@ const testResultSchema = new mongoose.Schema({
     completedAt: { type: Date}, // Дата завершения теста (ЗАВЕРШЕН ЛИ ТЕСТ СМОТРЕТЬ ПО ЭТОМУ КЛЮЧУ)
     dateStart: { type: Date},//время когда начал
     completionTime: { type: String },//за сколько минут закончил
+    randomizedQuestionsSetIndex: { type: Number },//за сколько минут закончил
 });
 
 export default mongoose.model('TestResult', testResultSchema);

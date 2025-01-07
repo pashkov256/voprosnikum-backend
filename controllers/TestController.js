@@ -135,25 +135,44 @@ export const getTestsByTeacher = async (req, res) => {
 
 
 
-export const updateTest = async (req, res) =>   {
+export const updateTest = async (req, res) => {
     try {
         const { id } = req.params; // ID теста
         const updates = req.body; // Измененные данные теста
 
-        const { questions: updatedQuestions, ...testUpdates } = updates;
+        const { questions: updatedQuestions, randomizedQuestionsSets, ...testUpdates } = updates;
+
+        // Устанавливаем обновления для теста
+        const updateData = { ...testUpdates };
+
+        // Если randomizedQuestionsSets отсутствует в req.body, удаляем это поле
+        if (randomizedQuestionsSets === undefined) {
+            updateData.$unset = { randomizedQuestionsSets: "" };
+        } else {
+            updateData.randomizedQuestionsSets = randomizedQuestionsSets;
+        }
 
         // 1. Обновляем сам тест (без вопросов)
-        const test = await Test.findByIdAndUpdate(id, testUpdates, { new: true });
+        const test = await Test.findByIdAndUpdate(id, updateData, { new: true });
         if (!test) return res.status(404).json({ error: "Test not found" });
 
         // 2. Обрабатываем вопросы
         const updatedQuestionIds = [];
         for (const question of updatedQuestions) {
             if (question._id) {
-                // Если вопрос уже существует, обновляем его
+                const updateQuestionData = {};
+                for (const key in question) {
+                    updateQuestionData[key] = question[key];
+                }
+
+                // Если timeLimit отсутствует, добавляем оператор $unset
+                if (question.timeLimit === undefined) {
+                    updateQuestionData.$unset = { timeLimit: "" }; // Удаляем поле timeLimit
+                }
+
                 const updatedQuestion = await Question.findByIdAndUpdate(
                     question._id,
-                    question,
+                    updateQuestionData,
                     { new: true }
                 );
                 updatedQuestionIds.push(updatedQuestion._id);
