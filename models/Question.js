@@ -20,10 +20,13 @@ const questionSchema = new mongoose.Schema({
     },
     correctAnswers: {
         type: [String], // Корректные ответы (поддерживает несколько для multiple-choice)
-        required: true,
     },
     imageUrl: {
         type: String, // Ссылка на изображение, если оно требуется для вопроса
+        default: null,
+    },
+    shortAnswer: {
+        type: String,
         default: null,
     },
     timeLimit: {

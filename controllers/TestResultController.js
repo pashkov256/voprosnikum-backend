@@ -5,7 +5,7 @@ import TestResult from '../models/TestResult.js';
 import User from '../models/User.js';
 export const createTestResult = async (req, res) => {
     try {
-        const { test, student, dateStart,randomizedQuestionsSetIndex } = req.body;
+        const { test, student, dateStart, randomizedQuestionsSetIndex } = req.body;
 
         // Проверяем существование теста и ученика
         const testExists = await Test.findById(test);
@@ -17,7 +17,7 @@ export const createTestResult = async (req, res) => {
         const newTestResult = new TestResult({
             test,
             student,
-            testAnswers:[],
+            testAnswers: [],
             // score:score,
             dateStart,
             randomizedQuestionsSetIndex
@@ -33,7 +33,7 @@ export const createTestResult = async (req, res) => {
 
 export const checkTestResult = async (req, res) => {
     try {
-        const {testId,studentId} = req.body
+        const { testId, studentId } = req.body
         const result = await TestResult.findOne({ test: testId, student: studentId });
         return result !== null;
     } catch (error) {
@@ -147,8 +147,9 @@ export const getTestResultByStudentAndTest = async (req, res) => {
 // };
 export const createTestAnswer = async (req, res) => {
     try {
-        const { testResult, question, answer, isCorrect, selectedAnswerOptions, correctAnswers, isTimeFail } = req.body;
+        const { testResult, question, answer, selectedOptions, isTimeFail, shortAnswer } = req.body;
 
+        let isCorrect;
         // Проверка существования результата теста
         const testResultExists = await TestResult.findById(testResult).populate({
             path: "testAnswers",
@@ -172,48 +173,73 @@ export const createTestAnswer = async (req, res) => {
         if (isTimeFail) {
             // Если время истекло, ученик не ответил
             pointsAwarded = 0;
-        } else if (selectedAnswerOptions && correctAnswers) {
+        } else if (questionExists.type == 'multiple-choice') {
             // Если пользователь выбрал варианты ответа
-            const correctSet = new Set(correctAnswers);
-            const selectedSet = new Set(selectedAnswerOptions);
+            console.log(question);
+
+            const correctSet = new Set(questionExists.correctAnswers);
+            const selectedSet = new Set(selectedOptions);
 
             // Подсчёт правильных и неправильных ответов
-            const correctSelections = [...selectedSet].filter((option) => correctSet.has(option));
-            const incorrectSelections = [...selectedSet].filter((option) => !correctSet.has(option));
+            if (correctSet.size !== 0) {
+                if (selectedSet.size !== questionExists.options) {//если пользователь не выбрал все варианты ответа
+                    const correctSelections = [...selectedSet].filter((option) => correctSet.has(option));
+                    const incorrectSelections = [...selectedSet].filter((option) => !correctSet.has(option));
 
-            // Начисление и вычитание баллов
-            pointsAwarded += correctSelections.length * 0.5; // +0.5 за каждый правильный вариант
-            pointsAwarded -= incorrectSelections.length * 0.5; // -0.5 за каждый неправильный вариант
-
-            // Если итоговое количество баллов отрицательное, приводим к нулю
-            pointsAwarded = Math.max(pointsAwarded, 0);
-        } else if (isCorrect !== undefined) {
+                    // Начисление и вычитание баллов
+                    pointsAwarded += correctSelections.length * 0.5; // +0.5 за каждый правильный вариант
+                    pointsAwarded -= incorrectSelections.length * 0.5; // -0.5 за каждый неправильный вариант
+                } else {
+                    pointsAwarded = 0
+                }
+            } else {
+                pointsAwarded = 0.5
+            }
+        } else if (questionExists.type == 'short-answer') {
             // Если это текстовый ответ
-            pointsAwarded = isCorrect ? 1 : 0;
+            const answerIsCorrect = String(shortAnswer).toLowerCase() === String(shortAnswer).toLowerCase();
+            isCorrect = answerIsCorrect
+            pointsAwarded = answerIsCorrect ? 1 : 0;
+        } else if (questionExists.type == 'single-choice') {
+            // Если это ответ с выбором одного варианта
+            if (questionExists?.correctAnswers?.includes(selectedOptions[0])) {
+                pointsAwarded = 1;
+                isCorrect = true
+
+            } else {
+                pointsAwarded = 0;
+                isCorrect = false
+            }
         }
+        // Если итоговое количество баллов отрицательное, приводим к нулю
+        pointsAwarded = Math.max(pointsAwarded, 0);
+        console.log({ pointsAwarded });
 
         // Создание нового ответа
         const newTestAnswer = new TestAnswer({
             testResult,
             question,
-            answer,
-            isCorrect,
+            isTimeFail,
+            isCorrect: isCorrect,
+            selectedOptions: selectedOptions,
+            shortAnswer: shortAnswer,
+            pointsAwarded
         });
 
         // Обновление баллов
         testResultExists.points += pointsAwarded;
 
         // Пересчёт максимального количества баллов
-        const totalPointsPossible = test.questions.reduce((sum, q) => {
-            if (q.options && q.correctAnswers) {
-                return sum + q.correctAnswers.length * 0.5; // Каждый правильный вариант — 0.5 балла
-            } else {
-                return sum + 1; // Текстовый вопрос даёт 1 балл
-            }
-        }, 0);
+        // const totalPointsPossible = test.questions.reduce((sum, q) => {
+        //     if (q.options && q.correctAnswers) {
+        //         return sum + q.correctAnswers.length * 0.5; // Каждый правильный вариант — 0.5 балла
+        //     } else {
+        //         return sum + 1; // Текстовый вопрос даёт 1 балл
+        //     }
+        // }, 0);
 
         // Процентное соотношение: points пользователя относительно максимального количества баллов
-        const percentage = (testResultExists.points / totalPointsPossible) * 100;
+        const percentage = (testResultExists.points / test.maxPoints) * 100;
 
         // Система оценивания
         if (percentage >= 80) {
@@ -245,7 +271,7 @@ export const createTestAnswer = async (req, res) => {
 
 export const getAllTestResults = async (req, res) => {
     try {
-        const {id} = req.params
+        const { id } = req.params
         console.log(req.params)
         const results = await TestResult.find({ test: id }).populate('testAnswers').populate({
             path: "student",
@@ -262,7 +288,7 @@ export const updateTestResult = async (req, res) => {
     try {
         const { id } = req.params;
         console.log(`id ${id}`);
-        
+
         const updates = req.body;
         const result = await TestResult.findByIdAndUpdate(id, updates, { new: true });
         if (!result) return res.status(404).json({ error: 'Test result not found' });
