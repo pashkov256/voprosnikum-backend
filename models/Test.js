@@ -8,6 +8,7 @@ const testSchema = new mongoose.Schema({
     questions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Question' }],
     deadline: { type: Date }, // Крайний срок для прохождения
     timeLimit: { type: Number, default: 0 }, // Время на прохождение теста (в минутах)
+    maxPoints: { type: Number, default: 0 }, // Максимальное количество баллов за тест
     createdAt: { type: Date, default: Date.now },
     countRandomizedQuestionsSets: { type: Number, default: 8},//количество вариантов с рандомными вопросами  
     randomizedQuestionsSets: { type: [[Number]], default: []},//варианты с рандомными вопросами  

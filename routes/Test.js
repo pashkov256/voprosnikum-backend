@@ -15,7 +15,7 @@ const router = express.Router();
 router.post('/tests', createTest);
 router.get('/tests', getAllTests);
 router.post('/tests/teacher/:teacherId', getTestsByTeacher);
-router.get("/tests/:id",checkAuth, getTestById);
+router.get("/tests/:id/:mode",checkAuth, getTestById);
 router.put('/tests/:id', updateTest);
 router.delete('/tests/:id', deleteTest);
 

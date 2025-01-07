@@ -3,10 +3,11 @@ import Question from '../models/Question.js';
 import Test from '../models/Test.js';
 import TestResult from "../models/TestResult.js";
 import User from "../models/User.js";
+import { createRandomizedQuestionsSets } from '../utils/shuffle.js';
 export const createTest = async (req, res) => {
     try {
         const { name, description, teacher, group, deadline } = req.body;
-        console.log( { name, description, teacher, group, deadline })
+        console.log({ name, description, teacher, group, deadline })
         const test = new Test({ name, description, teacher, group, deadline });
         await test.save();
         res.status(201).json(test);
@@ -18,46 +19,31 @@ export const createTest = async (req, res) => {
 
 
 export const getTestById = async (req, res) => {
-    // try {
-    //     const params = req.params;
-    //     if (!params.id) {
-    //         return res.status(400).json({ message: "Не указан ID теста." });
-    //     }
-    //     const test = await Test.findById(params.id).populate({
-    //         path: "questions",
-    //         model: Question,
-    //         select: "-__v -createdAt",
-    //     }) .populate({
-    //         path: "teacher",
-    //         model: User,
-    //         select:"-plainPassword -passwordHash"
-    //     });;
-    //     if (!test) {
-    //         return res.status(404).json({ message: "Тест не найден." });
-    //     }
-    //     res.status(200).json(test);
-    // } catch (error) {
-    //     console.error(error);
-    //     res.status(500).json({ message: "Ошибка при получении теста." });
-    // }
     try {
-        const params = req.params;
-        const studentId = req.userId || req.body.studentId; // Предполагаем, что ID пользователя передаётся через токен или в теле запроса.
+        const { id, mode } = req.params; // mode: "student" или "full" 
+        const user = await User.findById(req.userId);
+        const userRole = user.role;
 
-        if (!params.id) {
+        if (!id) {
             return res.status(400).json({ message: "Не указан ID теста." });
         }
 
-        if (!studentId) {
-            return res.status(400).json({ message: "Не указан ID студента." });
+        // Проверка на корректный mode
+        if (mode !== "student" && mode !== "full") {
+            return res.status(400).json({ message: "Некорректный mode запроса. Используйте 'student' или 'full'." });
         }
 
-        // Поиск теста с вопросами и учителем
-        const test = await Test.findById(params.id)
+        // Если mode === "full", проверяем роль пользователя
+        if (mode === "full" && userRole !== "teacher") {
+            return res.status(403).json({ message: "Доступ запрещён. Только учителя могут запрашивать полный тест." });
+        }
+
+        // Поиск теста
+        const test = await Test.findById(id)
             .populate({
                 path: "questions",
                 model: Question,
-                select: "-__v -createdAt",
+                select: mode === "student" ? "-correctAnswers -__v -createdAt -shortAnswer" : "-__v -createdAt", // Убираем правильные ответы для student
             })
             .populate({
                 path: "teacher",
@@ -69,25 +55,12 @@ export const getTestById = async (req, res) => {
             return res.status(404).json({ message: "Тест не найден." });
         }
 
-        // Проверяем, есть ли TestResult для данного студента и теста
-        const testResult = await TestResult.findOne({
-            student: studentId,
-            test: params.id,
-        });
-
-        // Добавляем поле haveTestResult
-        const result = {
-            ...test.toObject(),
-            haveTestResult: !!testResult, // true, если TestResult найден, иначе false
-        };
-
-        res.status(200).json(result);
+        res.status(200).json(test);
     } catch (error) {
-        console.error(error);
+        console.error("Ошибка при получении теста:", error);
         res.status(500).json({ message: "Ошибка при получении теста." });
     }
 };
-
 
 export const getAllTests = async (req, res) => {
     try {
@@ -146,11 +119,7 @@ export const updateTest = async (req, res) => {
         const updateData = { ...testUpdates };
 
         // Если randomizedQuestionsSets отсутствует в req.body, удаляем это поле
-        if (randomizedQuestionsSets === undefined) {
-            updateData.$unset = { randomizedQuestionsSets: "" };
-        } else {
-            updateData.randomizedQuestionsSets = randomizedQuestionsSets;
-        }
+
 
         // 1. Обновляем сам тест (без вопросов)
         const test = await Test.findByIdAndUpdate(id, updateData, { new: true });
@@ -158,32 +127,51 @@ export const updateTest = async (req, res) => {
 
         // 2. Обрабатываем вопросы
         const updatedQuestionIds = [];
+        const updatedQuestionData = [];
+        let newQuestionsCount = 0
         for (const question of updatedQuestions) {
-            if (question._id) {
+            // if (question._id) {
+            if (!question?.isNewQuestion) {
                 const updateQuestionData = {};
                 for (const key in question) {
                     updateQuestionData[key] = question[key];
                 }
-
                 // Если timeLimit отсутствует, добавляем оператор $unset
                 if (question.timeLimit === undefined) {
                     updateQuestionData.$unset = { timeLimit: "" }; // Удаляем поле timeLimit
                 }
-
                 const updatedQuestion = await Question.findByIdAndUpdate(
                     question._id,
                     updateQuestionData,
                     { new: true }
                 );
                 updatedQuestionIds.push(updatedQuestion._id);
+                updatedQuestionData.push(updatedQuestion);
             } else {
-                // Если вопрос новый, создаем его
-                const newQuestion = await Question.create(question);
+                const { _id, ...newQuestionData } = question;
+                const newQuestion = await Question.create(newQuestionData);
                 updatedQuestionIds.push(newQuestion._id);
+                updatedQuestionData.push(newQuestion);
+                newQuestionsCount += 1;
             }
         }
 
-        // 3. Обновляем массив questions в тесте
+        test.maxPoints = updatedQuestionData.reduce((sum, q) => {
+            if (q.type === 'multiple-choice') {
+                return sum + q.correctAnswers.length * 0.5; // Каждый правильный вариант — 0.5 балла
+            } else if (q.type === 'single-choice') {
+                return sum + 1;
+            } else if (q.type === 'short-answer') {
+                return sum + 1;
+            }
+        }, 0);
+        if (randomizedQuestionsSets === undefined) {
+            test.randomizedQuestionsSets = [];
+        } else {
+            test.randomizedQuestionsSets = randomizedQuestionsSets;
+        }
+
+
         test.questions = updatedQuestionIds;
         await test.save();
 
