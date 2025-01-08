@@ -60,6 +60,10 @@ export const getTestResultByStudentAndTest = async (req, res) => {
             model: "Users",
             select: '-passwordHash'
         })
+            .populate({
+                path: "testAnswers",
+                model: "TestAnswer",
+            })
         //'-role -login -passwordHash -plainPassword -group -createdAt -updatedAt -__v'
         // Если результат не найден
         if (!testResult) {
@@ -175,18 +179,17 @@ export const createTestAnswer = async (req, res) => {
             pointsAwarded = 0;
         } else if (questionExists.type == 'multiple-choice') {
             // Если пользователь выбрал варианты ответа
-            console.log(question);
+
 
             const correctSet = new Set(questionExists.correctAnswers);
-            const selectedSet = new Set(selectedOptions);
-
+            const selectedSet = new Set(selectedOptions); console.log("--------------------------");
+            console.log({ correctSet, selectedSet });
             // Подсчёт правильных и неправильных ответов
             if (correctSet.size !== 0) {
                 if (selectedSet.size !== questionExists.options) {//если пользователь не выбрал все варианты ответа
                     const correctSelections = [...selectedSet].filter((option) => correctSet.has(option));
                     const incorrectSelections = [...selectedSet].filter((option) => !correctSet.has(option));
 
-                    // Начисление и вычитание баллов
                     pointsAwarded += correctSelections.length * 0.5; // +0.5 за каждый правильный вариант
                     pointsAwarded -= incorrectSelections.length * 0.5; // -0.5 за каждый неправильный вариант
                 } else {
@@ -197,7 +200,7 @@ export const createTestAnswer = async (req, res) => {
             }
         } else if (questionExists.type == 'short-answer') {
             // Если это текстовый ответ
-            const answerIsCorrect = String(shortAnswer).toLowerCase() === String(shortAnswer).toLowerCase();
+            const answerIsCorrect = String(shortAnswer).toLowerCase() === String(questionExists.shortAnswer).toLowerCase();
             isCorrect = answerIsCorrect
             pointsAwarded = answerIsCorrect ? 1 : 0;
         } else if (questionExists.type == 'single-choice') {
@@ -213,7 +216,6 @@ export const createTestAnswer = async (req, res) => {
         }
         // Если итоговое количество баллов отрицательное, приводим к нулю
         pointsAwarded = Math.max(pointsAwarded, 0);
-        console.log({ pointsAwarded });
 
         // Создание нового ответа
         const newTestAnswer = new TestAnswer({
@@ -222,21 +224,13 @@ export const createTestAnswer = async (req, res) => {
             isTimeFail,
             isCorrect: isCorrect,
             selectedOptions: selectedOptions,
-            shortAnswer: shortAnswer,
+            shortAnswer,
             pointsAwarded
         });
 
         // Обновление баллов
         testResultExists.points += pointsAwarded;
 
-        // Пересчёт максимального количества баллов
-        // const totalPointsPossible = test.questions.reduce((sum, q) => {
-        //     if (q.options && q.correctAnswers) {
-        //         return sum + q.correctAnswers.length * 0.5; // Каждый правильный вариант — 0.5 балла
-        //     } else {
-        //         return sum + 1; // Текстовый вопрос даёт 1 балл
-        //     }
-        // }, 0);
 
         // Процентное соотношение: points пользователя относительно максимального количества баллов
         const percentage = (testResultExists.points / test.maxPoints) * 100;
@@ -267,6 +261,110 @@ export const createTestAnswer = async (req, res) => {
     }
 };
 
+export const updateTestAnswer = async (req, res) => {
+    try {
+        const { testAnswerId, selectedOptions, shortAnswer, isTimeFail, pointsAwardedOld } = req.body;
+
+        // Проверяем наличие ответа
+        const testAnswer = await TestAnswer.findById(testAnswerId).populate({
+            path: "question",
+            model: Question,
+        });
+        if (!testAnswer) {
+            return res.status(404).json({ message: "Ответ на вопрос не найден" });
+        }
+
+        // Проверяем наличие тестового результата
+        const testResult = await TestResult.findById(testAnswer.testResult).populate({
+            path: "testAnswers",
+            model: TestAnswer,
+        });
+        if (!testResult) {
+            return res.status(404).json({ message: "Результат теста не найден" });
+        }
+
+        const test = await Test.findById(testResult.test);
+        if (!test) {
+            return res.status(404).json({ message: "Тест не найден" });
+        }
+
+        const question = testAnswer.question;
+        let pointsAwarded = 0;
+        let isCorrect = false;
+
+        // Логика начисления баллов
+        if (isTimeFail) {
+            pointsAwarded = 0; // Время истекло, баллы не начисляются
+        } else if (question.type === "multiple-choice") {
+            const correctSet = new Set(question.correctAnswers);
+            const selectedSet = new Set(selectedOptions);
+
+
+            if (correctSet.size !== 0) {
+                const correctSelections = [...selectedSet].filter((option) => correctSet.has(option));
+                const incorrectSelections = [...selectedSet].filter((option) => !correctSet.has(option));
+
+
+                pointsAwarded += correctSelections.length * 0.5; // +0.5 за каждый правильный вариант
+                pointsAwarded -= incorrectSelections.length * 0.5; // -0.5 за каждый неправильный вариант
+            } else {
+                pointsAwarded = 0.5; // Если правильных вариантов нет
+            }
+        } else if (question.type === "short-answer") {
+            const answerIsCorrect =
+                String(shortAnswer).toLowerCase() === String(question.shortAnswer).toLowerCase();
+            isCorrect = answerIsCorrect;
+            pointsAwarded = answerIsCorrect ? 1 : 0;
+        } else if (question.type === "single-choice") {
+            if (question.correctAnswers.includes(selectedOptions[0])) {
+                pointsAwarded = 1;
+                isCorrect = true;
+            } else {
+                pointsAwarded = 0;
+                isCorrect = false;
+            }
+        }
+
+        // Если итоговое количество баллов отрицательное, приводим к нулю
+        pointsAwarded = Math.max(pointsAwarded, 0);
+
+        // Обновляем ответ
+        testAnswer.selectedOptions = selectedOptions || testAnswer.selectedOptions;
+        testAnswer.shortAnswer = shortAnswer || testAnswer.shortAnswer;
+        testAnswer.isTimeFail = isTimeFail;
+        testAnswer.pointsAwarded = pointsAwarded;
+        testAnswer.isCorrect = isCorrect;
+
+        // Пересчитываем баллы для тестового результата
+        const previousPoints = testAnswer.pointsAwarded;
+
+        testResult.points += pointsAwarded - pointsAwardedOld;
+
+        // Пересчитываем процент выполнения теста
+        const percentage = (testResult.points / test.maxPoints) * 100;
+
+        // Обновляем оценку 
+        if (percentage >= 80) {
+            testResult.score = 5;
+        } else if (percentage >= 70) {
+            testResult.score = 4;
+        } else if (percentage >= 50) {
+            testResult.score = 3;
+        } else {
+            testResult.score = 2;
+        }
+
+        await testAnswer.save();
+        await testResult.save();
+
+        return res.status(200).json({
+            testAnswer,
+        });
+    } catch (error) {
+        console.error("Ошибка при обновлении ответа на тест:", error);
+        return res.status(500).json({ message: "Ошибка на сервере" });
+    }
+};
 
 
 export const getAllTestResults = async (req, res) => {
