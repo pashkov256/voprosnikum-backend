@@ -78,77 +78,6 @@ export const getTestResultByStudentAndTest = async (req, res) => {
     }
 };
 
-// export const createTestAnswer = async (req, res) => {
-//     try {
-//         const { testResult, question, answer,isCorrect } = req.body;
-//         console.log(req.body)
-//         // Проверка обязательных данных
-//         // if (!testResult || !question || !answer || !isCorrect) {
-//         //     return res.status(400).json({ message: "Все поля (testResult, question, answer) обязательны для заполнения" });
-//         // }
-
-//         // Проверка существования результата теста
-//         const testResultExists = await TestResult.findById(testResult).populate({
-//             path: "testAnswers",
-//             model: TestAnswer,
-//         });
-//         if (!testResultExists) {
-//             return res.status(404).json({ message: "Результат теста не найден" });
-//         }
-
-//         // Проверка существования вопроса
-//         const questionExists = await Question.findById(question);
-//         if (!questionExists) {
-//             return res.status(404).json({ message: "Вопрос не найден" });
-//         }
-
-//         let test = await Test.findById(testResultExists.test)
-//         console.log(`testResultExists.test ${testResultExists.test}`)
-//         console.log(test)
-
-//         // Создание нового ответа
-//         const newTestAnswer = new TestAnswer({
-//             testResult,
-//             question,
-//             // answer,
-//             isCorrect
-//         });
-//         let countTrueAnswers = testResultExists.testAnswers.filter((answ)=>answ.isCorrect).length
-//         if(isCorrect){
-//             countTrueAnswers += 1
-//         }
-//         console.log(`countTrueAnswers ${countTrueAnswers}`)
-//         let resultScore = Math.floor((countTrueAnswers / test.questions.length) * 10)
-
-//         console.log(resultScore)
-//         let ocenka = 0
-//         if(resultScore == 10){
-//             ocenka = 5
-//         } else if (resultScore >= 8 || resultScore == 9 ){
-//             ocenka = 4
-//         } else if(resultScore >= 6 || resultScore == 7 ){
-//             ocenka = 3
-//         } else if (resultScore <= 5 ){
-//             ocenka = 2
-//         }
-
-
-//         console.log(`resultScore ${resultScore}`)
-
-//         // Сохранение в базе данных
-//         const savedTestAnswer = await newTestAnswer.save();
-//         testResultExists.score =ocenka
-//         testResultExists.testAnswers.push(savedTestAnswer._id);
-//         await testResultExists.save();
-//         return res.status(201).json({
-//             message: "Ответ успешно создан",
-//             testAnswer: newTestAnswer
-//         });
-//     } catch (error) {
-//         console.error("Ошибка при создании ответа на тест:", error);
-//         return res.status(500).json({ message: "Ошибка на сервере" });
-//     }
-// };
 export const createTestAnswer = async (req, res) => {
     try {
         const { testResult, question, answer, selectedOptions, isTimeFail, shortAnswer } = req.body;
@@ -385,9 +314,8 @@ export const getAllTestResults = async (req, res) => {
 export const updateTestResult = async (req, res) => {
     try {
         const { id } = req.params;
-        console.log(`id ${id}`);
-
         const updates = req.body;
+        console.log({ updates });
         const result = await TestResult.findByIdAndUpdate(id, updates, { new: true });
         if (!result) return res.status(404).json({ error: 'Test result not found' });
         res.status(200).json(result);
