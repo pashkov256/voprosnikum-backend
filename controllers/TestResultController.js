@@ -298,13 +298,24 @@ export const updateTestAnswer = async (req, res) => {
 
 export const getAllTestResults = async (req, res) => {
     try {
-        const { id } = req.params
-        console.log(req.params)
-        const results = await TestResult.find({ test: id }).populate('testAnswers').populate({
-            path: "student",
-            model: User,
-        });
-        console.log(results)
+        const { id } = req.params;
+        console.log(req.params);
+
+        const results = await TestResult.find({ test: id })
+            .populate({
+                path: 'testAnswers',
+                populate: {
+                    path: 'question',
+                    select: 'title1 timeLimit correctAnswers shortAnswer type',
+                },
+            })
+            .populate({
+                path: 'student',
+                select: 'fullName _id',
+                model: User,
+            });
+
+        console.log(results);
         res.status(200).json(results);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -327,9 +338,18 @@ export const updateTestResult = async (req, res) => {
 export const deleteTestResult = async (req, res) => {
     try {
         const { id } = req.params;
-        const result = await TestResult.findByIdAndDelete(id);
-        if (!result) return res.status(404).json({ error: 'Test result not found' });
-        res.status(200).json({ message: 'Test result deleted successfully' });
+        const user = await User.findById(req.userId);
+        const userRole = user.role;
+        if (userRole !== 'student') {
+            const result = await TestResult.findByIdAndDelete(id);
+            if (!result) return res.status(404).json({ error: 'Результат теста не найден' });
+            res.status(200).json({ message: 'Тест успешно удалён' });
+        } else {
+            return res.status(403).json({
+                message: "Доступ запрещён. Ученики не могут выполнять эту операцию.",
+            });
+        }
+
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

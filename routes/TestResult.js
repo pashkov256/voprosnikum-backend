@@ -9,7 +9,7 @@ import {
     updateTestAnswer,
     updateTestResult
 } from '../controllers/TestResultController.js';
-
+import checkAuth from '../utils/checkAuth.js';
 const router = express.Router();
 
 router.post('/test/:id/create-result', createTestResult);
@@ -19,6 +19,6 @@ router.get('/test/:testId/student/:studentId', getTestResultByStudentAndTest);
 router.post('/test/create-answer', createTestAnswer);
 router.put('/test/update-answer', updateTestAnswer);
 router.put('/results/:id', updateTestResult);
-router.delete('/results/:id', deleteTestResult);
+router.delete('/results/:id', checkAuth, deleteTestResult);
 
 export default router;

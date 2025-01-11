@@ -165,6 +165,7 @@ export const updateTest = async (req, res) => {
                 return sum + 1;
             }
         }, 0);
+
         if (randomizedQuestionsSets === undefined) {
             test.randomizedQuestionsSets = [];
         } else {
@@ -186,7 +187,6 @@ export const deleteTest = async (req, res) => {
 
     try {
         const { id } = req.params;
-        console.log(`DEL ID ${id}`);
         const test = await Test.findByIdAndDelete(id);
         if (!test) return res.status(404).json({ error: 'Test not found' });
         res.status(200).json({ message: 'Test deleted successfully' });
