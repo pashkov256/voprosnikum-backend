@@ -48,18 +48,18 @@ export const createUserByAdmin = async (req, res) => {
 
         // Проверяем, является ли текущий пользователь администратором
         const adminUser = await UserModel.findById(adminId);
-        if (!adminUser || adminUser.role === 'student' ) {
+        if (!adminUser || adminUser.role === 'student') {
             return res.status(403).json({ message: 'Доступ запрещён. Только администраторы могут выполнять эту операцию.' });
         }
 
-        const { fullName, role, group  } = req.body;
+        const { fullName, role, group } = req.body;
 
         if (!fullName || !role) {
             return res.status(400).json({ message: 'Поле fullName и role обязательны.' });
         }
         let fio = fullName.split(' ')
-        let fln = [fio[0],fio[1]].join('')
-        
+        let fln = [fio[0], fio[1]].join('')
+
         // Транслитерация имени и фамилии
         const transliteratedName = transliterate(fln.toLowerCase());
         const randomDigitsLogin = Math.floor(10000 + Math.random() * 90000);
@@ -157,7 +157,7 @@ export const getUsersByGroup = async (req, res) => {
 //             group.teachers.map(async (teacher) => {
 //                 const tests = await Test.find({ teacher: teacher._id });
 //                 console.log(`tests ${tests}`);
-                
+
 //                 return {
 //                     _id: teacher._id,
 //                     fullName: teacher.fullName,
@@ -165,7 +165,7 @@ export const getUsersByGroup = async (req, res) => {
 //                 };
 //             })
 //         );
-        
+
 
 //         res.status(200).json({
 //             groupName: group.name,
@@ -209,15 +209,15 @@ export const getTeacherAndTestsByStudentGroup = async (req, res) => {
                     from: "testresults", // Коллекция testResult
                     let: { testId: "$_id" },
                     pipeline: [
-                        { 
-                            $match: { 
-                                $expr: { 
+                        {
+                            $match: {
+                                $expr: {
                                     $and: [
-                                        { $eq: ["$test", "$$testId"] }, 
+                                        { $eq: ["$test", "$$testId"] },
                                         { $eq: ["$student", new mongoose.Types.ObjectId(studentId)] }
-                                    ] 
-                                } 
-                            } 
+                                    ]
+                                }
+                            }
                         },
                         { $project: { completionTime: 1 } },
                     ],
@@ -244,7 +244,7 @@ export const getTeacherAndTestsByStudentGroup = async (req, res) => {
                 },
             },
             {
-                $unwind: { 
+                $unwind: {
                     path: "$groupDetails", // Раскручиваем массив groupDetails, если он не пустой
                     preserveNullAndEmptyArrays: true, // Оставляем пустое значение, если группа не найдена
                 },
@@ -257,17 +257,18 @@ export const getTeacherAndTestsByStudentGroup = async (req, res) => {
                     timeLimit: 1,
                     testIsComplete: 1,
                     teacher: 1,
+                    startDate: 1,
                     groupDetails: 1, // добавляем groupDetails
                 },
             },
         ]);
-        
+
         const teacherData = group.teachers.map((teacher) => {
             const teacherTests = testsWithResults.filter((test) => {
                 // Добавляем проверки на наличие groupDetails
                 return (
-                    String(test.teacher) === String(teacher._id) && 
-                    test.groupDetails && 
+                    String(test.teacher) === String(teacher._id) &&
+                    test.groupDetails &&
                     test.groupDetails.name === group.name
                 );
             });
