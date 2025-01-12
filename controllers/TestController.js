@@ -149,7 +149,10 @@ export const updateTest = async (req, res) => {
                 updatedQuestionData.push(updatedQuestion);
             } else {
                 const { _id, ...newQuestionData } = question;
+
                 const newQuestion = await Question.create(newQuestionData);
+                console.log({ newQuestion });
+
                 updatedQuestionIds.push(newQuestion._id);
                 updatedQuestionData.push(newQuestion);
                 newQuestionsCount += 1;
@@ -158,11 +161,11 @@ export const updateTest = async (req, res) => {
 
         test.maxPoints = updatedQuestionData.reduce((sum, q) => {
             if (q.type === 'multiple-choice') {
-                return sum + q.correctAnswers.length * 0.5; // Каждый правильный вариант — 0.5 балла
+                return sum + q.correctAnswers.length * q.multipleChoicePoints; // Каждый правильный вариант — 0.5 балла
             } else if (q.type === 'single-choice') {
-                return sum + 1;
+                return sum + q.singleChoicePoints;
             } else if (q.type === 'short-answer') {
-                return sum + 1;
+                return sum + q.shortAnswerPoints;
             }
         }, 0);
 
@@ -172,8 +175,8 @@ export const updateTest = async (req, res) => {
             test.randomizedQuestionsSets = randomizedQuestionsSets;
         }
 
-
         test.questions = updatedQuestionIds;
+
         await test.save();
 
         res.status(200).json(test);

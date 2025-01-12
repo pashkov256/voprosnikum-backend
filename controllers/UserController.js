@@ -315,6 +315,31 @@ export const getAllTeachers = async (req, res) => {
         res.status(500).json({ message: 'Ошибка при получении списка учителей.' });
     }
 };
+export const getAllAdmins = async (req, res) => {
+    try {
+        const adminId = req.userId;
+
+        // Проверяем, является ли текущий пользователь администратором
+        const adminUser = await UserModel.findById(adminId);
+        if (!adminUser || adminUser.role !== 'admin') {
+            return res.status(403).json({ message: 'Доступ запрещён. Только администраторы могут выполнять эту операцию.' });
+        }
+
+        // Получение всех учителей
+        const admins = await UserModel.find({ role: 'admin' }).select('-passwordHash');
+
+        // Форматирование ответа
+        const adminsWithPasswords = admins.map((admin) => ({
+            ...admin.toObject(),
+            password: admin.plainPassword || 'Пароль не доступен', // Добавляем поле `password`
+        }));
+
+        res.status(200).json(adminsWithPasswords);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Ошибка при получении списка учителей.' });
+    }
+};
 
 export const getMinimalTeachersList = async (req, res) => {
     try {
