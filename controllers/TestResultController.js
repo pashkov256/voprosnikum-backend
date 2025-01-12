@@ -306,7 +306,7 @@ export const getAllTestResults = async (req, res) => {
                 path: 'testAnswers',
                 populate: {
                     path: 'question',
-                    select: 'title1 timeLimit correctAnswers shortAnswer type',
+                    select: 'title timeLimit correctAnswers shortAnswer type',
                 },
             })
             .populate({

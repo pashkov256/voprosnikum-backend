@@ -1,16 +1,10 @@
 import mongoose from 'mongoose';
 
 const questionSchema = new mongoose.Schema({
-    // test: {
-    //     type: mongoose.Schema.Types.ObjectId,
-    //     ref: 'Test',
-    //     required: true,
-    // },
     title: { type: String, required: true },
-    title1: { type: String },
     type: {
         type: String,
-        enum: ['short-answer', 'multiple-choice','single-choice'],
+        enum: ['short-answer', 'multiple-choice', 'single-choice'],
         required: true,
         default: 'multiple-choice', // По умолчанию вопрос с выбором вариантов
     },
