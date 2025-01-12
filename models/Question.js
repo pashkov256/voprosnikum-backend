@@ -26,6 +26,18 @@ const questionSchema = new mongoose.Schema({
     timeLimit: {
         type: Number, // Время на вопрос в секундах
     },
+    shortAnswerPoints: {
+        type: Number,
+        default: 1
+    },
+    multipleChoicePoints: {
+        type: Number,
+        default: 0.5
+    },
+    singleChoicePoints: {
+        type: Number,
+        default: 1
+    },
 });
 
 export default mongoose.model('Question', questionSchema);

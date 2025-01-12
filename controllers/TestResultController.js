@@ -111,31 +111,29 @@ export const createTestAnswer = async (req, res) => {
 
 
             const correctSet = new Set(questionExists.correctAnswers);
-            const selectedSet = new Set(selectedOptions); console.log("--------------------------");
-            console.log({ correctSet, selectedSet });
-            // Подсчёт правильных и неправильных ответов
+            const selectedSet = new Set(selectedOptions);
             if (correctSet.size !== 0) {
                 if (selectedSet.size !== questionExists.options) {//если пользователь не выбрал все варианты ответа
                     const correctSelections = [...selectedSet].filter((option) => correctSet.has(option));
                     const incorrectSelections = [...selectedSet].filter((option) => !correctSet.has(option));
 
-                    pointsAwarded += correctSelections.length * 0.5; // +0.5 за каждый правильный вариант
-                    pointsAwarded -= incorrectSelections.length * 0.5; // -0.5 за каждый неправильный вариант
+                    pointsAwarded += correctSelections.length * questionExists.multipleChoicePoints; // +questionExists.multipleChoicePoints за каждый правильный вариант
+                    pointsAwarded -= incorrectSelections.length * questionExists.multipleChoicePoints; // -questionExists.multipleChoicePoints за каждый неправильный вариант
                 } else {
                     pointsAwarded = 0
                 }
             } else {
-                pointsAwarded = 0.5
+                pointsAwarded = questionExists.multipleChoicePoints
             }
         } else if (questionExists.type == 'short-answer') {
             // Если это текстовый ответ
             const answerIsCorrect = String(shortAnswer).toLowerCase() === String(questionExists.shortAnswer).toLowerCase();
             isCorrect = answerIsCorrect
-            pointsAwarded = answerIsCorrect ? 1 : 0;
+            pointsAwarded = answerIsCorrect ? questionExists.shortAnswerPoints : 0;
         } else if (questionExists.type == 'single-choice') {
             // Если это ответ с выбором одного варианта
             if (questionExists?.correctAnswers?.includes(selectedOptions[0])) {
-                pointsAwarded = 1;
+                pointsAwarded = questionExists.singleChoicePoints;
                 isCorrect = true
 
             } else {
@@ -234,19 +232,19 @@ export const updateTestAnswer = async (req, res) => {
                 const incorrectSelections = [...selectedSet].filter((option) => !correctSet.has(option));
 
 
-                pointsAwarded += correctSelections.length * 0.5; // +0.5 за каждый правильный вариант
-                pointsAwarded -= incorrectSelections.length * 0.5; // -0.5 за каждый неправильный вариант
+                pointsAwarded += correctSelections.length * question.multipleChoicePoints; // +0.5 за каждый правильный вариант
+                pointsAwarded -= incorrectSelections.length * question.multipleChoicePoints; // -0.5 за каждый неправильный вариант
             } else {
-                pointsAwarded = 0.5; // Если правильных вариантов нет
+                pointsAwarded = question.multipleChoicePoints; // Если правильных вариантов нет
             }
         } else if (question.type === "short-answer") {
             const answerIsCorrect =
                 String(shortAnswer).toLowerCase() === String(question.shortAnswer).toLowerCase();
             isCorrect = answerIsCorrect;
-            pointsAwarded = answerIsCorrect ? 1 : 0;
+            pointsAwarded = answerIsCorrect ? question.shortAnswerPoints : 0;
         } else if (question.type === "single-choice") {
             if (question.correctAnswers.includes(selectedOptions[0])) {
-                pointsAwarded = 1;
+                pointsAwarded = question.singleChoicePoints;
                 isCorrect = true;
             } else {
                 pointsAwarded = 0;
