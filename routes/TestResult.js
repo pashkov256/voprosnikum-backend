@@ -6,6 +6,7 @@ import {
     deleteTestResult,
     getAllTestResults,
     getTestResultByStudentAndTest,
+    suxResult,
     updateTestAnswer,
     updateTestResult
 } from '../controllers/TestResultController.js';
@@ -19,6 +20,7 @@ router.get('/test/:testId/student/:studentId', getTestResultByStudentAndTest);
 router.post('/test/create-answer', createTestAnswer);
 router.put('/test/update-answer', updateTestAnswer);
 router.put('/results/:id', updateTestResult);
+router.get('/sux/:id', checkAuth, suxResult);
 router.delete('/results/:id', checkAuth, deleteTestResult);
 
 export default router;

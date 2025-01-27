@@ -332,6 +332,38 @@ export const updateTestResult = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+export const suxResult = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const result = await TestResult.findOne({ test: id, student: req.userId });
+        const test = await Test.findById(id).populate({
+            path: "questions",
+            model: Question,
+
+        }).populate({
+            path: "teacher",
+            model: User,
+            select: "-plainPassword -passwordHash",
+        });
+
+        let r = []
+        if (test.isQuestionsRandomized) {
+            const rQI = test.randomizedQuestionsSets[result.randomizedQuestionsSetIndex]
+            rQI.forEach(i => {
+                const currentQuestion = test.questions[i]
+                r.push({ Вопрос: currentQuestion.title, Множественные_ответы: currentQuestion.correctAnswers, Текстовый_ответ: currentQuestion.shortAnswer })
+            });
+        } else {
+            test.questions.forEach(currentQuestion => {
+                r.push({ Вопрос: currentQuestion.title, Множественные_ответы: currentQuestion.correctAnswers, Текстовый_ответ: currentQuestion.shortAnswer })
+            });
+        }
+        res.status(200).json(r);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
 export const deleteTestResult = async (req, res) => {
     try {
